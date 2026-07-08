@@ -53,7 +53,7 @@ async def convert_file(file: UploadFile = File(...)):
             try:
                 resp = await client.post(
                     f"{DOCLING_URL}/v1/convert/file",
-                    files={"file": (file.filename, content,
+                    files={"files": (file.filename, content,
                                     file.content_type or "application/octet-stream")},
                 )
                 resp.raise_for_status()
