@@ -5,10 +5,10 @@ Mimics the Docling /v1/convert/file API so Open WebUI can point
 DOCLING_SERVER_URL here without any other config changes.
 
 Routing:
-  .pdf / images  →  proxied to Docling (layout + OCR)
-  .docx .xlsx
-  .pptx .html
-  .csv .txt .md  →  converted locally with MarkItDown
+  images (png/jpg/tiff/etc.)  →  proxied to Docling (OCR)
+  .pdf .docx .xlsx
+  .pptx .html .csv
+  .txt .md            →  converted locally with MarkItDown (PyMuPDF for PDF)
 """
 
 import logging
@@ -23,7 +23,9 @@ from markitdown import MarkItDown
 
 DOCLING_URL = os.getenv("DOCLING_URL", "http://docling.ai.svc.cluster.local:5001")
 
-DOCLING_EXTS = {".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif", ".webp"}
+# Only route scanned images to Docling (OCR). Text-based PDFs use MarkItDown
+# (PyMuPDF) to avoid Docling's multi-GB layout analysis memory overhead.
+DOCLING_EXTS = {".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif", ".webp"}
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
