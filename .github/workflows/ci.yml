@@ -9,6 +9,7 @@ on:
 env:
   HARBOR_REGISTRY: harbor.devandre.sbs
   IMAGE_NAME: library/markitdown-proxy
+  GITOPS_IMAGE: harbor.10.0.0.200.nip.io/library/markitdown-proxy
 
 jobs:
   build-and-push:
@@ -81,7 +82,7 @@ jobs:
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import 2>/dev/null || true
           git config commit.gpgsign true
           git config user.signingkey FD6D39D681DEFA34
-          sed -i "s|harbor.devandre.sbs/library/markitdown-proxy:.*|harbor.10.0.0.200.nip.io/library/markitdown-proxy:${NEW_TAG}|g" \
+          sed -i "s|harbor\.[^/]*/library/markitdown-proxy:.*|${GITOPS_IMAGE}:${NEW_TAG}|g" \
             manifests/ai/10-markitdown-proxy.yaml
           git add manifests/ai/10-markitdown-proxy.yaml
           git diff --cached --quiet || \
