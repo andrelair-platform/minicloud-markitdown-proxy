@@ -1,9 +1,121 @@
+---
 apiVersion: backstage.io/v1alpha1
-kind: Location
+kind: Component
 metadata:
-  name: minicloud-markitdown-proxy
-  description: Redirects to the component entry in minicloud-gitops catalog
+  name: markitdown-proxy
+  description: |
+    Custom document conversion service. Mimics the Docling /v1/convert/file
+    API so Open WebUI can use DOCLING_SERVER_URL without config changes.
+    Routes PDFs and images to Docling (layout+OCR), Office files to
+    MarkItDown in-pod. Used by rag-ingest and Open WebUI paperclip uploads.
+  annotations:
+    backstage.io/source-location: url:https://github.com/andrelair-platform/minicloud-markitdown-proxy
+    github.com/project-slug: andrelair-platform/minicloud-markitdown-proxy
+    argocd/app-name: ai-manifests
+    backstage.io/kubernetes-id: markitdown-proxy
+  tags:
+    - ai
+    - rag
+    - custom
+  links:
+    - url: https://github.com/andrelair-platform/minicloud-markitdown-proxy
+      title: Source Repository
+      icon: github
+    - url: https://argocd.devandre.sbs/applications/ai-manifests
+      title: ArgoCD Application
+      icon: dashboard
 spec:
-  type: url
-  targets:
-    - https://raw.githubusercontent.com/andrelair-platform/minicloud-gitops/main/catalog-info.yaml
+  type: service
+  lifecycle: production
+  owner: andrelair-platform
+  system: minicloud-platform
+  providesApis:
+    - markitdown-proxy-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: markitdown-proxy-api
+  description: |
+    Document conversion API. Mimics Docling /v1/convert/file for Open WebUI
+    compatibility. Routes PDFs/images to Docling (layout+OCR) and Office
+    files to MarkItDown in-pod. Internal cluster service only.
+  annotations:
+    backstage.io/source-location: url:https://github.com/andrelair-platform/minicloud-markitdown-proxy
+  tags:
+    - ai
+    - rag
+    - openapi
+spec:
+  type: openapi
+  lifecycle: production
+  owner: andrelair-platform
+  system: minicloud-platform
+  definition: |
+    openapi: "3.1.0"
+    info:
+      title: markitdown-proxy
+      version: "0.1.0"
+      description: >
+        Docling-compatible conversion proxy. Routes by file extension:
+        PDF/images → Docling :5001, Office (.docx/.xlsx/.pptx) → MarkItDown in-pod.
+        Internal cluster service at markitdown-proxy.ai.svc.cluster.local:8000.
+    paths:
+      /health:
+        get:
+          summary: Health check
+          responses:
+            "200":
+              description: Service is healthy
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: ok
+      /ready:
+        get:
+          summary: Readiness check
+          responses:
+            "200":
+              description: Service is ready to accept requests
+      /v1/convert/file:
+        post:
+          summary: Convert a document to Markdown
+          description: >
+            Accepts a file upload and returns Markdown. Routing by extension:
+            .pdf/.png/.jpg/.jpeg/.tiff/.bmp/.gif/.webp → Docling (layout+OCR);
+            .docx/.xlsx/.pptx/.html → MarkItDown; .txt/.md → MarkItDown fallback.
+            Response format matches Docling /v1/convert/file so Open WebUI
+            DOCLING_SERVER_URL can point directly at this proxy.
+          requestBody:
+            required: true
+            content:
+              multipart/form-data:
+                schema:
+                  type: object
+                  required:
+                    - file
+                  properties:
+                    file:
+                      type: string
+                      format: binary
+                      description: Document to convert
+          responses:
+            "200":
+              description: Conversion successful
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      document:
+                        type: object
+                        properties:
+                          md_content:
+                            type: string
+                            description: Converted Markdown content
+            "422":
+              description: Validation error (missing file)
